@@ -96,7 +96,6 @@ nba-insight/
 ├── tests/
 │   ├── test_analytics.py
 │   └── test_mcp_tools.py
-├── .env.example
 ├── .gitignore
 ├── README.md
 └── requirements.txt
