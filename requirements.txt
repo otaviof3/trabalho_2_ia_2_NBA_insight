@@ -1,0 +1,11 @@
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+joblib
+fastmcp
+streamlit
+plotly
+pytest
+mcp[cli]>=1.0.0,<2.0.0
