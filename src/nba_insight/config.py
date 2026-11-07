@@ -29,6 +29,22 @@ N_CLUSTERS = 4
 RANDOM_STATE = 42
 
 
+# Nomes legíveis dos clusters (usados apenas como rótulo de exibição).
+# Os nomes são atribuídos automaticamente por analytics.get_cluster_names(),
+# a partir do perfil médio de cada cluster; os textos abaixo são só os rótulos.
+NOME_RESERVAS = "Reservas"
+NOME_PROTAGONISTAS = "Protagonistas"
+NOME_GARRAFAO = "Garrafão"
+NOME_PERIMETRO = "Perímetro"
+
+DESCRICAO_CLUSTERS = {
+    NOME_RESERVAS: "poucos minutos por jogo e baixa produção",
+    NOME_PROTAGONISTAS: "mais minutos, mais pontos e assistências",
+    NOME_GARRAFAO: "minutos médios, com mais rebotes, tocos e arremessos eficientes perto da cesta",
+    NOME_PERIMETRO: "minutos médios, perfil de quem joga mais longe da cesta",
+}
+
+
 # ============================================================
 # FEATURES UTILIZADAS NO K-MEANS
 # ============================================================

@@ -73,21 +73,20 @@ def prepare_season_data(df, season=SEASON):
             f"Nenhum registro encontrado para a temporada {season}."
         )
 
-    # 3. Identificar jogadores com registro 2TM
-    players_2tm = set(
-        df_season.loc[
-            df_season["team"] == "2TM",
-            "player"
-        ]
+    # 3. Identificar jogadores com registro consolidado
+    # (2TM, 3TM, 4TM...: jogador que passou por mais de um time)
+    eh_consolidado = df_season["team"].astype(str).str.fullmatch(r"\d+TM")
+
+    players_consolidados = set(
+        df_season.loc[eh_consolidado, "player"]
     )
 
     # 4. Remover registros de equipes individuais
-    # quando existe um registro consolidado 2TM
+    # quando existe um registro consolidado
     df_season = df_season[
         ~(
-            df_season["player"].isin(players_2tm)
-            &
-            (df_season["team"] != "2TM")
+            df_season["player"].isin(players_consolidados)
+            & ~eh_consolidado
         )
     ].copy()
 

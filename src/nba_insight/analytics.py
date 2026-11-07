@@ -1,9 +1,16 @@
+import unicodedata
 from functools import lru_cache
 
 import numpy as np
 import pandas as pd
 
-from .config import FEATURES
+from .config import (
+    FEATURES,
+    NOME_GARRAFAO,
+    NOME_PERIMETRO,
+    NOME_PROTAGONISTAS,
+    NOME_RESERVAS,
+)
 from .data_loader import load_and_prepare_data
 from .model_loader import load_model_artifact
 
@@ -60,9 +67,23 @@ def get_model_info():
 # BUSCA DE JOGADORES
 # ============================================================
 
+def _normalizar(texto):
+    """
+    Remove acentos e padroniza caixa: "Jokić" e "jokic" viram "jokic".
+
+    Caracteres como "ł" ou "ø" não se decompõem em NFKD; por isso
+    ficam como estão (o que é raro entre os jogadores da NBA).
+    """
+
+    texto = unicodedata.normalize("NFKD", str(texto))
+    texto = "".join(c for c in texto if not unicodedata.combining(c))
+
+    return texto.casefold().strip()
+
+
 def search_player(name):
     """
-    Procura jogadores pelo nome.
+    Procura jogadores pelo nome, ignorando acentos e maiúsculas.
 
     Primeiro tenta encontrar uma correspondência exata.
     Caso não encontre, procura nomes que contenham o texto.
@@ -73,25 +94,34 @@ def search_player(name):
 
     df = get_players_data()
 
-    name = name.strip()
+    alvo = _normalizar(name)
+    nomes = df["player"].map(_normalizar)
 
-    exact = df[
-        df["player"].str.casefold() == name.casefold()
-    ]
+    exact = df[nomes == alvo]
 
     if not exact.empty:
         return exact.reset_index(drop=True)
 
     results = df[
-        df["player"].str.contains(
-            name,
-            case=False,
-            na=False,
-            regex=False
-        )
+        nomes.str.contains(alvo, regex=False, na=False)
     ]
 
     return results.reset_index(drop=True)
+
+
+def _erro_ambiguo(name, encontrados):
+    """
+    Monta a mensagem de erro para nomes com mais de um resultado,
+    já listando os candidatos para o usuário escolher.
+    """
+
+    nomes = list(encontrados["player"].head(8))
+
+    return (
+        f"Mais de um resultado encontrado para '{name}': "
+        + ", ".join(nomes)
+        + ". Informe o nome completo."
+    )
 
 
 # ============================================================
@@ -121,10 +151,7 @@ def compare_players(names):
             )
 
         if len(player) > 1:
-            raise ValueError(
-                f"Mais de um resultado encontrado para '{name}'. "
-                "Informe o nome completo."
-            )
+            raise ValueError(_erro_ambiguo(name, player))
 
         results.append(player.iloc[0])
 
@@ -168,9 +195,7 @@ def find_similar_players(name, limit=10):
         )
 
     if len(player) > 1:
-        raise ValueError(
-            "Mais de um jogador encontrado. Informe o nome completo."
-        )
+        raise ValueError(_erro_ambiguo(name, player))
 
     # Recupera a posição real do jogador no DataFrame original.
     player_name = player.iloc[0]["player"]
@@ -225,10 +250,13 @@ def get_cluster_summary(cluster_id=None):
 
     df = get_players_data()
 
+    n_clusters = get_model_info()["n_clusters"]
+
     if cluster_id is not None:
-        if cluster_id not in range(4):
+        if cluster_id not in range(n_clusters):
             raise ValueError(
-                "Cluster inválido. Informe um valor entre 0 e 3."
+                "Cluster inválido. Informe um valor entre 0 e "
+                f"{n_clusters - 1}."
             )
 
         df = df[df["cluster"] == cluster_id].copy()
@@ -251,6 +279,77 @@ def get_cluster_summary(cluster_id=None):
     )
 
     return summary
+
+
+# ============================================================
+# NOMES DOS CLUSTERS
+# ============================================================
+
+def get_cluster_names():
+    """
+    Dá um nome legível a cada cluster, a partir do perfil médio.
+
+    Regras (aplicadas ao K=4 do Trabalho 1):
+    - menos minutos por jogo           -> reservas
+    - mais minutos por jogo            -> protagonistas
+    - entre os dois do meio, o que tem mais rebotes + tocos
+      -> jogadores de garrafão; o outro -> jogadores de perímetro
+
+    Se o modelo tiver outro número de clusters, usa "Cluster N".
+    """
+
+    df = get_players_data()
+    medias = df.groupby("cluster")[
+        ["mp_per_game", "trb_per_game", "blk_per_game"]
+    ].mean()
+
+    if len(medias) != 4:
+        return {int(c): f"Cluster {int(c)}" for c in medias.index}
+
+    por_minutos = medias["mp_per_game"].sort_values()
+    reservas = por_minutos.index[0]
+    protagonistas = por_minutos.index[-1]
+    meio = list(por_minutos.index[1:3])
+
+    garrafao_score = medias["trb_per_game"] + 2 * medias["blk_per_game"]
+    garrafao = max(meio, key=lambda c: garrafao_score[c])
+    perimetro = [c for c in meio if c != garrafao][0]
+
+    return {
+        int(reservas): NOME_RESERVAS,
+        int(protagonistas): NOME_PROTAGONISTAS,
+        int(garrafao): NOME_GARRAFAO,
+        int(perimetro): NOME_PERIMETRO,
+    }
+
+
+def cluster_label(cluster_id):
+    """Retorna 'Nome do cluster' para exibição."""
+
+    return get_cluster_names().get(int(cluster_id), f"Cluster {cluster_id}")
+
+
+def add_cluster_names(df):
+    """
+    Devolve uma cópia do DataFrame com a coluna 'cluster_nome'
+    logo após a coluna 'cluster' (se ela existir).
+    """
+
+    df = df.copy()
+
+    if "cluster" not in df.columns:
+        return df
+
+    nomes = get_cluster_names()
+    posicao = list(df.columns).index("cluster") + 1
+
+    df.insert(
+        posicao,
+        "cluster_nome",
+        df["cluster"].map(lambda c: nomes.get(int(c), f"Cluster {c}")),
+    )
+
+    return df
 
 
 # ============================================================

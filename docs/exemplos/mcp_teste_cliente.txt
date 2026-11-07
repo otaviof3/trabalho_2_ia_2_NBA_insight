@@ -1,0 +1,140 @@
+ferramentas: 7
+ - buscar_jogador: descrição='\nBusca jogadores da NBA (temporada 2026) pelo nome'
+ - comparar_jogadores: descrição='\nCompara as estatísticas por jogo de dois ou mais '
+ - buscar_jogadores_similares: descrição='\nEncontra os jogadores com perfil estatístico mais'
+ - consultar_clusters: descrição='\nResume os 4 clusters (grupos de perfil) encontrad'
+ - buscar_jogadores: descrição='\nLista jogadores que atendem a limites estatístico'
+ - analisar_perfil_hipotetico: descrição='\nClassifica um jogador hipotético em um dos cluste'
+ - consultar_modelo: descrição='\nInformações do modelo K-Means em uso: temporada ('
+
+consultar_modelo {}
+  isError=False -> {
+  "season": 2026,
+  "n_clusters": 4,
+  "features": [
+    "mp_per_game",
+    "fg_per_game",
+    "fga_per_game",
+    "fg_percent",
+    "x3p_per_game",
+    "x3pa_per_game",
+    "x3p_percent",
+    "ft_per_game",
+    "fta_per_game",
+    "ft_percent",
+    "trb_per
+
+buscar_jogador {"nome": "Jokić"}
+  isError=False -> {
+  "season": 2026,
+  "lg": "NBA",
+  "player": "Nikola Jokić",
+  "player_id": "jokicni01",
+  "age": 30.0,
+  "team": "DEN",
+  "pos": "C",
+  "g": 65,
+  "gs": 65.0,
+  "mp_per_game": 34.8,
+  "fg_per_game": 9.9,
+  "fga_per_game": 17.4,
+  "fg_percent": 0.569,
+  "x3p
+
+buscar_jogador {"nome": "Jokic"}
+  isError=False -> {
+  "season": 2026,
+  "lg": "NBA",
+  "player": "Nikola Jokić",
+  "player_id": "jokicni01",
+  "age": 30.0,
+  "team": "DEN",
+  "pos": "C",
+  "g": 65,
+  "gs": 65.0,
+  "mp_per_game": 34.8,
+  "fg_per_game": 9.9,
+  "fga_per_game": 17.4,
+  "fg_percent": 0.569,
+  "x3p
+
+buscar_jogadores_similares {"nome": "Brandon Ingram", "limite": 3}
+  isError=False -> {
+  "player": "Desmond Bane",
+  "team": "ORL",
+  "pos": "SG",
+  "cluster": 3,
+  "cluster_nome": "Protagonistas",
+  "mp_per_game": 33.6,
+  "fg_per_game": 7.1,
+  "fga_per_game": 14.7,
+  "fg_percent": 0.484,
+  "x3p_per_game": 2.0,
+  "x3pa_per_game": 5.2,
+  "x3p_p
+
+comparar_jogadores {"nomes": ["Nikola Jokić", "Luka Dončić"]}
+  isError=False -> {
+  "player": "Nikola Jokić",
+  "team": "DEN",
+  "pos": "C",
+  "age": 30.0,
+  "cluster": 3,
+  "cluster_nome": "Protagonistas",
+  "mp_per_game": 34.8,
+  "fg_per_game": 9.9,
+  "fga_per_game": 17.4,
+  "fg_percent": 0.569,
+  "x3p_per_game": 1.7,
+  "x3pa_per_game":
+
+comparar_jogadores {"nomes": ["James", "Brandon Ingram"]}
+  isError=True -> Error executing tool comparar_jogadores: Mais de um resultado encontrado para 'James': James Harden, Bronny James, LeBron James, Sion James, James Wiseman. Informe o nome completo.
+
+consultar_clusters {}
+  isError=False -> {
+  "cluster": 0,
+  "cluster_nome": "Reservas",
+  "jogadores": 222,
+  "mp_per_game": 10.4423423423,
+  "fg_per_game": 1.3121621622,
+  "fga_per_game": 2.9981981982,
+  "fg_percent": 0.434990991,
+  "x3p_per_game": 0.4472972973,
+  "x3pa_per_game": 1.3851351351,
+  "
+
+consultar_clusters {"cluster_id": 9}
+  isError=True -> Error executing tool consultar_clusters: Cluster inválido. Informe um valor entre 0 e 3.
+
+buscar_jogadores {"filtros": {"pts_per_game_min": 27}, "limite": 5}
+  isError=False -> {
+  "season": 2026,
+  "lg": "NBA",
+  "player": "Giannis Antetokounmpo",
+  "player_id": "antetgi01",
+  "age": 31.0,
+  "team": "MIL",
+  "pos": "PF",
+  "g": 36,
+  "gs": 36.0,
+  "mp_per_game": 28.9,
+  "fg_per_game": 10.4,
+  "fga_per_game": 16.6,
+  "fg_percent": 0.
+
+analisar_perfil_hipotetico {"estatisticas": {"pts_per_game": 25, "trb_per_game": 7, "ast_per_game
+  isError=False -> {
+  "cluster": 1,
+  "cluster_nome": "Perímetro",
+  "features_informadas": [
+    "pts_per_game",
+    "trb_per_game",
+    "ast_per_game"
+  ],
+  "jogadores_semelhantes": [
+    {
+      "player": "Dylan Harper",
+      "team": "SAS",
+      "pos": "SG",
+      "cluste

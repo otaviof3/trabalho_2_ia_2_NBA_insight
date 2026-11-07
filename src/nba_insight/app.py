@@ -3,6 +3,7 @@ from pathlib import Path
 
 import streamlit as st
 import plotly.express as px
+import numpy as np
 import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -19,7 +20,11 @@ from src.nba_insight.analytics import (
     get_cluster_summary,
     filter_players,
     analyze_hypothetical_player,
+    add_cluster_names,
+    cluster_label,
+    get_cluster_names,
 )
+from src.nba_insight.config import DESCRICAO_CLUSTERS
 
 # --------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
@@ -170,9 +175,8 @@ if pagina == "Dashboard":
         st.markdown("### Distribuição dos jogadores por cluster")
 
         distribuicao = (
-            df["cluster"]
+            add_cluster_names(df)["cluster_nome"]
             .value_counts()
-            .sort_index()
             .reset_index()
         )
 
@@ -190,7 +194,7 @@ if pagina == "Dashboard":
 
         fig.update_layout(showlegend=False)
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col2:
         st.markdown("### Pontuadores da temporada")
@@ -213,14 +217,14 @@ if pagina == "Dashboard":
             },
         )
 
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.divider()
 
     st.markdown("### Dados da temporada")
 
     st.dataframe(
-        df[[
+        add_cluster_names(df)[[
             "player",
             "team",
             "pos",
@@ -228,9 +232,9 @@ if pagina == "Dashboard":
             "pts_per_game",
             "trb_per_game",
             "ast_per_game",
-            "cluster",
+            "cluster_nome",
         ]].sort_values("pts_per_game", ascending=False),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -248,17 +252,41 @@ elif pagina == "Jogadores":
         placeholder="Ex.: LeBron James",
     )
 
-    if st.button("Buscar jogador", type="primary"):
+    buscar = st.button("Buscar jogador", type="primary")
 
-        if nome.strip():
+    # Guarda a consulta para que a escolha entre jogadores homônimos
+    # (selectbox) não faça a busca desaparecer ao recarregar a página.
+    if buscar:
+        st.session_state["consulta_jogador"] = nome
 
-            resultado = search_player(nome)
+    consulta = st.session_state.get("consulta_jogador", "")
+
+    if consulta:
+
+        if consulta.strip():
+
+            resultado = search_player(consulta)
 
             if resultado.empty:
                 st.warning("Nenhum jogador encontrado.")
 
             else:
+                if len(resultado) > 1:
+                    st.info(
+                        f"{len(resultado)} jogadores encontrados. "
+                        "Escolha um para ver os detalhes."
+                    )
+                    escolhido = st.selectbox(
+                        "Jogador",
+                        resultado["player"].tolist(),
+                        key="escolha_jogador",
+                    )
+                    resultado = resultado[
+                        resultado["player"] == escolhido
+                    ].reset_index(drop=True)
+
                 jogador = resultado.iloc[0]
+                resultado = add_cluster_names(resultado)
 
                 st.markdown(f"### {jogador['player']}")
 
@@ -267,7 +295,7 @@ elif pagina == "Jogadores":
                 c1.metric("Equipe", jogador["team"])
                 c2.metric("Posição", jogador["pos"])
                 c3.metric("Idade", int(jogador["age"]))
-                c4.metric("Cluster", int(jogador["cluster"]))
+                c4.metric("Perfil", cluster_label(jogador["cluster"]))
 
                 st.markdown("### Estatísticas por jogo")
 
@@ -294,7 +322,7 @@ elif pagina == "Jogadores":
 
                 st.dataframe(
                     resultado,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                 )
 
@@ -336,7 +364,9 @@ elif pagina == "Comparações":
             st.warning("Selecione dois jogadores diferentes.")
 
         else:
-            resultado = compare_players([jogador1, jogador2])
+            resultado = add_cluster_names(
+                compare_players([jogador1, jogador2])
+            )
 
             st.markdown("### Comparação estatística")
 
@@ -368,13 +398,13 @@ elif pagina == "Comparações":
                 template="plotly_dark",
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             st.markdown("### Dados completos")
 
             st.dataframe(
                 resultado,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -416,9 +446,11 @@ elif pagina == "Jogadores similares":
 
     if st.button("Encontrar jogadores similares", type="primary"):
 
-        resultado = find_similar_players(
-            jogador,
-            limit=int(limite),
+        resultado = add_cluster_names(
+            find_similar_players(
+                jogador,
+                limit=int(limite),
+            )
         )
 
         if resultado.empty:
@@ -433,7 +465,7 @@ elif pagina == "Jogadores similares":
 
             st.dataframe(
                 resultado,
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
 
@@ -451,15 +483,22 @@ elif pagina == "Clusters":
 
     st.markdown("## Exploração dos clusters")
 
-    resumo = get_cluster_summary()
+    resumo = add_cluster_names(get_cluster_summary())
+
+    with st.expander("O que cada cluster representa?"):
+        for nome_cluster, descricao in DESCRICAO_CLUSTERS.items():
+            st.markdown(f"- **{nome_cluster}**: {descricao}")
 
     col1, col2 = st.columns(2)
 
     with col1:
         cluster_selecionado = st.selectbox(
             "Selecione um cluster",
-            [-1, 0, 1, 2, 3],
-            format_func=lambda x: "Todos os clusters" if x == -1 else f"Cluster {x}",
+            [-1, *sorted(get_cluster_names())],
+            format_func=lambda x: (
+                "Todos os clusters" if x == -1
+                else f"{x} – {cluster_label(x)}"
+            ),
         )
 
     with col2:
@@ -469,14 +508,14 @@ elif pagina == "Clusters":
 
     fig = px.pie(
         resumo,
-        names="cluster",
+        names="cluster_nome",
         values="jogadores",
         hole=0.45,
         template="plotly_dark",
         title="Participação dos jogadores por cluster",
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     if cluster_selecionado == -1:
         jogadores_cluster = df.copy()
@@ -486,29 +525,31 @@ elif pagina == "Clusters":
             df["cluster"] == cluster_selecionado
         ].copy()
 
-        resumo_exibido = get_cluster_summary(cluster_selecionado)
+        resumo_exibido = add_cluster_names(
+            get_cluster_summary(cluster_selecionado)
+        )
 
     st.markdown("### Perfil estatístico dos clusters")
 
     st.dataframe(
         resumo_exibido,
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
     st.markdown("### Jogadores pertencentes ao grupo")
 
     st.dataframe(
-        jogadores_cluster[[
+        add_cluster_names(jogadores_cluster)[[
             "player",
             "team",
             "pos",
             "pts_per_game",
             "trb_per_game",
             "ast_per_game",
-            "cluster",
+            "cluster_nome",
         ]].sort_values("pts_per_game", ascending=False),
-        use_container_width=True,
+        width="stretch",
         hide_index=True,
     )
 
@@ -617,16 +658,18 @@ elif pagina == "Perfil hipotético":
         ft = estatisticas["ft_per_game"]
         fta = estatisticas["fta_per_game"]
 
+        # Sem tentativas o aproveitamento é indefinido (NaN), não 0%:
+        # o imputer do modelo o substitui pela mediana da liga.
         estatisticas["fg_percent"] = (
-            fg / fga if fga > 0 else 0.0
+            fg / fga if fga > 0 else np.nan
         )
 
         estatisticas["x3p_percent"] = (
-            x3p / x3pa if x3pa > 0 else 0.0
+            x3p / x3pa if x3pa > 0 else np.nan
         )
 
         estatisticas["ft_percent"] = (
-            ft / fta if fta > 0 else 0.0
+            ft / fta if fta > 0 else np.nan
         )
 
         # Garante que todas as 16 features sejam enviadas
@@ -643,7 +686,8 @@ elif pagina == "Perfil hipotético":
 
         st.success(
             f"O perfil hipotético foi classificado no "
-            f"Cluster {resultado['cluster']}."
+            f"cluster {resultado['cluster']} – "
+            f"{cluster_label(resultado['cluster'])}."
         )
 
         st.markdown("### Aproveitamentos calculados")
@@ -652,17 +696,20 @@ elif pagina == "Perfil hipotético":
 
         c1.metric(
             "Aproveitamento de quadra",
-            f"{estatisticas['fg_percent'] * 100:.1f}%"
+            "—" if pd.isna(estatisticas["fg_percent"])
+            else f"{estatisticas['fg_percent'] * 100:.1f}%"
         )
 
         c2.metric(
             "Aproveitamento de três",
-            f"{estatisticas['x3p_percent'] * 100:.1f}%"
+            "—" if pd.isna(estatisticas["x3p_percent"])
+            else f"{estatisticas['x3p_percent'] * 100:.1f}%"
         )
 
         c3.metric(
             "Aproveitamento de lance livre",
-            f"{estatisticas['ft_percent'] * 100:.1f}%"
+            "—" if pd.isna(estatisticas["ft_percent"])
+            else f"{estatisticas['ft_percent'] * 100:.1f}%"
         )
 
         st.markdown("### Jogadores estatisticamente semelhantes")
@@ -676,8 +723,8 @@ elif pagina == "Perfil hipotético":
         else:
 
             st.dataframe(
-                jogadores_similares,
-                use_container_width=True,
+                add_cluster_names(jogadores_similares),
+                width="stretch",
                 hide_index=True,
             )
 
