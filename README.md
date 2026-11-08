@@ -30,14 +30,30 @@ O NBA Insight junta três partes:
 
 ### Os 4 clusters
 
-A interface mostra o cluster pelo número (0 a 3). A interpretação de cada um, feita a partir do perfil médio dos grupos, é esta:
+Cada cluster recebe um nome automaticamente, a partir do perfil médio do grupo (o K-Means só devolve números de 0 a 3). A regra, em `analytics.get_cluster_names()`: o cluster com menos minutos é **Reservas**, o com mais minutos é **Protagonistas**, e entre os dois do meio o que tem mais rebotes e tocos é **Garrafão** (o outro é **Perímetro**).
 
-| Cluster | Jogadores | Interpretação | Perfil médio |
+| Cluster | Nome | Jogadores | Perfil médio |
 |---|---|---|---|
-| 0 | 222 | Reservas de baixa minutagem | ≈ 10 min e 3,6 pts por jogo |
-| 1 | 206 | Jogadores de rotação perimetrais | ≈ 23 min, 10 pts, mais bolas de três |
-| 2 | 67 | Especialistas de garrafão | ≈ 23 min, 9,7 pts, FG% ≈ 59% e quase 1 toco por jogo |
-| 3 | 87 | Jogadores de alta minutagem | ≈ 32 min, 20,7 pts e 4,9 assistências |
+| 0 | Reservas | 222 | ≈ 10 min e 3,6 pts por jogo |
+| 1 | Perímetro | 206 | ≈ 23 min, 10 pts, mais bolas de três |
+| 2 | Garrafão | 67 | ≈ 23 min, 9,7 pts, FG% ≈ 59% e quase 1 toco por jogo |
+| 3 | Protagonistas | 87 | ≈ 32 min, 20,7 pts e 4,9 assistências |
+
+## Demonstração
+
+Capturas de tela do app e saídas dos testes estão em [`docs/exemplos/`](docs/exemplos/).
+
+| Dashboard | Jogadores similares |
+|---|---|
+| ![Dashboard](docs/exemplos/01_dashboard.png) | ![Jogadores similares](docs/exemplos/03_jogadores_similares.png) |
+
+| Busca com nomes iguais | Clusters |
+|---|---|
+| ![Busca ambígua](docs/exemplos/02_busca_ambigua.png) | ![Clusters](docs/exemplos/04_clusters.png) |
+
+![Perfil hipotético](docs/exemplos/05_perfil_hipotetico.png)
+
+Também há o log de uma sessão real de um cliente MCP chamando as 7 ferramentas ([`mcp_teste_cliente.txt`](docs/exemplos/mcp_teste_cliente.txt)) e o resultado dos testes ([`pytest.txt`](docs/exemplos/pytest.txt)).
 
 ## 3. Como a IA é utilizada
 
@@ -70,11 +86,11 @@ A interface e o servidor MCP usam a mesma camada analítica (`analytics.py`), en
 
 **Dataset.** O arquivo é o `Player Per Game.csv` do conjunto [NBA, ABA, BAA Stats](https://www.kaggle.com/datasets/sumitrodatta/nba-aba-baa-stats/data), do Kaggle (dados do Basketball Reference). Ele já está em `data/`.
 
-**Recorte.** Liga NBA, temporada 2026, uma linha por jogador. Jogadores que passaram por mais de um time usam a linha agregada. No fim sobram 582 jogadores.
+**Recorte.** Liga NBA, temporada 2026, uma linha por jogador. Jogadores que passaram por mais de um time usam a linha agregada (`2TM`, `3TM` ou `4TM`). No fim sobram 582 jogadores.
 
 **Atributos (16, todos por jogo):** minutos, cestas de quadra (convertidas, tentadas e %), bolas de três (convertidas, tentadas e %), lances livres (convertidos, tentados e %), rebotes, assistências, roubos, tocos, erros e pontos.
 
-**Pré-processamento.** Valores ausentes (por exemplo, o % de três de quem nunca tentou) são preenchidos pela mediana. Depois os dados passam pelo `StandardScaler`.
+**Pré-processamento.** Valores ausentes (por exemplo, o % de três de quem nunca tentou) são preenchidos pela mediana. No perfil hipotético, um aproveitamento sem tentativas também é tratado como ausente, e não como 0%. Depois os dados passam pelo `StandardScaler`.
 
 | Parâmetro do modelo | Valor |
 |---|---|
@@ -90,7 +106,7 @@ O modelo treinado, junto com o imputer e o scaler, fica salvo em `artifacts/kmea
 
 ### 6.1 Requisitos
 
-- Python 3.10 ou superior (desenvolvido com [PREENCHER versão])
+- Python 3.10 ou superior (testado com Python 3.13)
 - Git (opcional, só se for clonar)
 - Windows, Linux ou macOS
 
@@ -127,6 +143,8 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+Para reproduzir exatamente as versões testadas, use `pip install -r requirements-lock.txt` no lugar de `requirements.txt`.
+
 ### 6.4 Dataset
 
 O arquivo `data/Player Per Game.csv` já vem no repositório. Se precisar baixar de novo, ele está no [Kaggle](https://www.kaggle.com/datasets/sumitrodatta/nba-aba-baa-stats/data); coloque-o na pasta `data/` com esse mesmo nome.
@@ -145,7 +163,7 @@ python scripts/train_model.py
 streamlit run src/nba_insight/app.py
 ```
 
-O terminal mostra o endereço local (normalmente http://localhost:8501).
+O terminal mostra o endereço local (normalmente http://localhost:8501). O tema escuro é fixado em `.streamlit/config.toml`.
 
 ### 6.7 Rodar o servidor MCP
 
@@ -191,17 +209,21 @@ Perguntas que dá para fazer ao assistente:
 pytest -v
 ```
 
+São 48 testes: os de unidade (com dados simulados) e os de integração em `tests/test_integracao.py`, que usam o dataset e o modelo reais.
+
 ## 7. Ferramentas MCP
 
 | Ferramenta | O que faz |
 |---|---|
-| `buscar_jogador` | Pesquisa um jogador pelo nome |
+| `buscar_jogador` | Pesquisa um jogador pelo nome (ignora acentos e maiúsculas) |
 | `comparar_jogadores` | Compara estatísticas de jogadores |
 | `buscar_jogadores_similares` | Encontra jogadores estatisticamente próximos |
 | `consultar_clusters` | Mostra os clusters e o resumo de cada um |
 | `buscar_jogadores` | Filtra jogadores por critérios estatísticos (mínimo e máximo) |
 | `analisar_perfil_hipotetico` | Classifica um jogador fictício e lista os reais mais parecidos |
-| `consultar_modelo` | Retorna informações do modelo (temporada, clusters, atributos) |
+| `consultar_modelo` | Retorna informações do modelo (temporada, clusters, atributos, nomes dos clusters) |
+
+Todas as ferramentas têm descrição, para que o assistente saiba quando usar cada uma, e as respostas incluem o nome do cluster (`cluster_nome`). Se um nome for ambíguo (por exemplo, "James"), o erro lista os candidatos para o assistente pedir o nome completo.
 
 ## 8. Limitações
 
@@ -214,6 +236,7 @@ pytest -v
 ## 9. Próximos passos
 
 - **Projeção de desempenho:** um modelo preditivo, validado em temporadas futuras, com cenários do tipo "e se jogar mais minutos?".
+- **Evolução ao longo do tempo:** o `Player Per Game.csv` já traz várias temporadas (1947 a 2026). Dá para aplicar o modelo às temporadas anteriores de cada jogador, mostrar a trajetória, as transições entre clusters e apontar quem está em alta ou em queda.
 - **Várias temporadas:** seletor de temporada e comparação entre épocas.
 - **Mais estatísticas:** métricas avançadas (PER, uso, BPM) e valores por 36 minutos, para reduzir o viés da minutagem.
 - **Uso real:** publicar a interface (por exemplo, no Streamlit Community Cloud) e o servidor MCP, para que pessoas usem sem instalar nada.
@@ -228,6 +251,7 @@ pytest -v
 │   └── Player Per Game.csv
 ├── docs/
 │   ├── architecture.md
+│   └── exemplos/               # prints do app e logs
 ├── scripts/
 │   └── train_model.py
 ├── src/
@@ -241,10 +265,14 @@ pytest -v
 │       └── model_loader.py
 ├── tests/
 │   ├── test_analytics.py
+│   ├── test_integracao.py
 │   └── test_mcp_tools.py
+├── .streamlit/
+│   └── config.toml
 ├── .gitignore
 ├── README.md
-└── requirements.txt
+├── requirements.txt
+└── requirements-lock.txt
 ```
 
 ## 11. Créditos
