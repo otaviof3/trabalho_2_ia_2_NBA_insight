@@ -25,7 +25,7 @@ A dor, então, é que comparar jogadores e achar perfis parecidos é lento, manu
 O NBA Insight junta três partes:
 
 1. **Modelo de ML (K-Means):** agrupa os jogadores da temporada 2026 em 4 perfis estatísticos, sem usar a posição como entrada.
-2. **Interface web (Streamlit):** dashboard, consulta de jogadores, jogadores similares, comparação, exploração dos clusters e simulação de um jogador hipotético.
+2. **Interface web (Streamlit):** dashboard, consulta de jogadores, jogadores similares, comparação, exploração dos clusters, evolução entre temporadas e simulação de um jogador hipotético.
 3. **Servidor MCP (FastMCP):** expõe essas mesmas funções como ferramentas para um assistente de IA, como o Claude Desktop. O usuário pergunta em linguagem natural e o assistente consulta os dados e o modelo.
 
 ### Os 4 clusters
@@ -39,6 +39,19 @@ Cada cluster recebe um nome automaticamente, a partir do perfil médio do grupo 
 | 2 | Garrafão | 67 | ≈ 23 min, 9,7 pts, FG% ≈ 59% e quase 1 toco por jogo |
 | 3 | Protagonistas | 87 | ≈ 32 min, 20,7 pts e 4,9 assistências |
 
+### Evolução entre temporadas (2025 → 2026)
+
+O modelo foi treinado na temporada 2026. Para ver como os jogadores mudaram, as linhas de 2025 passam pelo **mesmo** imputer, scaler e K-Means. Como a régua é a mesma nas duas temporadas, mudar de cluster indica mudança de perfil estatístico.
+
+- **Produção** = pontos + rebotes + assistências por jogo.
+- **Tendência:** "Em alta" ou "Em queda" quando a produção varia pelo menos 3,0; caso contrário, "Estável".
+- **Contexto de minutagem:** informa se a mudança veio junto com variação de pelo menos 5 minutos por jogo. Muitas mudanças de cluster refletem jogar mais ou menos, e não jogar melhor ou pior.
+- **Critérios:** só entram jogadores presentes nas duas temporadas e com pelo menos 20 jogos em cada (a comparação é feita pelo identificador do jogador).
+
+Com os dados atuais, 358 jogadores atendem aos critérios: 105 em alta, 95 em queda e 158 estáveis, e 109 mudaram de cluster. Os limiares ficam em `config.py` e as temporadas são parâmetros das funções, mas o modelo foi ajustado em 2026, então épocas muito antigas são menos confiáveis.
+
+Essa análise está disponível na página **Evolução** da interface e nas ferramentas MCP `analisar_evolucao_jogador` e `listar_jogadores_em_evolucao`. Assim o assistente consegue responder, por exemplo, "quem evoluiu mais de 2025 para 2026?" e explicar a mudança.
+
 ## Demonstração
 
 Capturas de tela do app e saídas dos testes estão em [`docs/exemplos/`](docs/exemplos/).
@@ -51,9 +64,13 @@ Capturas de tela do app e saídas dos testes estão em [`docs/exemplos/`](docs/e
 |---|---|
 | ![Busca ambígua](docs/exemplos/02_busca_ambigua.png) | ![Clusters](docs/exemplos/04_clusters.png) |
 
-![Perfil hipotético](docs/exemplos/05_perfil_hipotetico.png)
+| Evolução de um jogador (em queda) | Perfil hipotético |
+|---|---|
+| ![Evolução](docs/exemplos/07_evolucao_queda.png) | ![Perfil hipotético](docs/exemplos/05_perfil_hipotetico.png) |
 
-Também há o log de uma sessão real de um cliente MCP chamando as 7 ferramentas ([`mcp_teste_cliente.txt`](docs/exemplos/mcp_teste_cliente.txt)) e o resultado dos testes ([`pytest.txt`](docs/exemplos/pytest.txt)).
+Página de evolução completa, com um jogador em alta: [`06_evolucao_jogador.png`](docs/exemplos/06_evolucao_jogador.png).
+
+Também há o log de uma sessão real de um cliente MCP chamando as ferramentas, inclusive as de evolução ([`mcp_teste_cliente.txt`](docs/exemplos/mcp_teste_cliente.txt)) e o resultado dos testes ([`pytest.txt`](docs/exemplos/pytest.txt)).
 
 ## 3. Como a IA é utilizada
 
@@ -61,7 +78,8 @@ Também há o log de uma sessão real de um cliente MCP chamando as 7 ferramenta
 |---|---|---|
 | Aprendizado não supervisionado | K-Means (K=4), com imputação pela mediana e padronização | Descobrir perfis de jogadores e classificar novos perfis |
 | Similaridade | Distância euclidiana no espaço padronizado das 16 estatísticas | Encontrar jogadores parecidos |
-| Integração com assistente | Servidor MCP (FastMCP) com 7 ferramentas | Deixar um modelo de linguagem usar os dados e o modelo como ferramentas |
+| Análise temporal | O mesmo K-Means aplicado a duas temporadas; variação de produção e transição entre clusters | Identificar jogadores em alta ou em queda |
+| Integração com assistente | Servidor MCP (FastMCP) com 9 ferramentas | Deixar um modelo de linguagem usar os dados e o modelo como ferramentas |
 
 O assistente de linguagem natural entra só como interface. Quem calcula é o código e o modelo, então ele não precisa "chutar" estatísticas.
 
@@ -201,6 +219,9 @@ Perguntas que dá para fazer ao assistente:
 - "Compare Nikola Jokić e Luka Dončić."
 - "Mostre o resumo de cada cluster."
 - "Quais jogadores têm pelo menos 20 pontos e 5 assistências por jogo?"
+- "Quem evoluiu mais de 2025 para 2026?"
+- "O que mudou no jogo do Cam Thomas? Ele piorou ou só jogou menos?"
+- "Quais jogadores mudaram de cluster de 2025 para 2026?"
 - "Crie um jogador com 30 minutos, 22 pontos, 7 rebotes e 5 assistências e diga em que cluster ele cai."
 
 ### 6.9 Testes
@@ -209,7 +230,7 @@ Perguntas que dá para fazer ao assistente:
 pytest -v
 ```
 
-São 48 testes: os de unidade (com dados simulados) e os de integração em `tests/test_integracao.py`, que usam o dataset e o modelo reais.
+São 68 testes: os de unidade (com dados simulados) e os de integração em `tests/test_integracao.py` e `tests/test_evolucao.py`, que usam o dataset e o modelo reais.
 
 ## 7. Ferramentas MCP
 
@@ -222,6 +243,8 @@ São 48 testes: os de unidade (com dados simulados) e os de integração em `tes
 | `buscar_jogadores` | Filtra jogadores por critérios estatísticos (mínimo e máximo) |
 | `analisar_perfil_hipotetico` | Classifica um jogador fictício e lista os reais mais parecidos |
 | `consultar_modelo` | Retorna informações do modelo (temporada, clusters, atributos, nomes dos clusters) |
+| `analisar_evolucao_jogador` | Compara um jogador entre duas temporadas: perfil, variações, tendência e contexto de minutagem |
+| `listar_jogadores_em_evolucao` | Lista quem mais subiu, quem mais caiu ou quem mudou de cluster, com a matriz de transições |
 
 Todas as ferramentas têm descrição, para que o assistente saiba quando usar cada uma, e as respostas incluem o nome do cluster (`cluster_nome`). Se um nome for ambíguo (por exemplo, "James"), o erro lista os candidatos para o assistente pedir o nome completo.
 
@@ -229,15 +252,16 @@ Todas as ferramentas têm descrição, para que o assistente saiba quando usar c
 
 - Os grupos não são bem separados: o Silhouette Score (≈ 0,24, medido no modelo) indica estrutura real, mas com fronteiras difusas. Jogadores no limite entre dois grupos podem mudar de cluster com pequenas variações nos dados.
 - Estatística por jogo mistura talento com oportunidade: um jogador bom com poucos minutos cai junto com os reservas.
-- Só a temporada 2026 é analisada. Lesões, trocas de time e contexto da equipe não entram.
+- O modelo é treinado só na temporada 2026; a evolução compara 2025 e 2026 com essa mesma régua, e épocas muito antigas ficam menos confiáveis. Lesões, trocas de time e contexto da equipe não entram.
+- Mudança de cluster nem sempre é mudança de rendimento: muitas vezes é variação de minutagem. Por isso a análise de evolução traz o contexto de minutos.
+- Calouros e quem não jogou nas duas temporadas (ou jogou menos de 20 jogos) ficam fora da análise de evolução.
 - A classificação em cluster não é uma previsão de desempenho futuro.
 - Perfis hipotéticos muito fora do padrão da liga geram classificações pouco representativas.
 
 ## 9. Próximos passos
 
 - **Projeção de desempenho:** um modelo preditivo, validado em temporadas futuras, com cenários do tipo "e se jogar mais minutos?".
-- **Evolução ao longo do tempo:** o `Player Per Game.csv` já traz várias temporadas (1947 a 2026). Dá para aplicar o modelo às temporadas anteriores de cada jogador, mostrar a trajetória, as transições entre clusters e apontar quem está em alta ou em queda.
-- **Várias temporadas:** seletor de temporada e comparação entre épocas.
+- **Mais temporadas na evolução:** trajetória de vários anos por jogador (por exemplo, 2022 a 2026) e gráfico de linha, reaproveitando as mesmas funções.
 - **Mais estatísticas:** métricas avançadas (PER, uso, BPM) e valores por 36 minutos, para reduzir o viés da minutagem.
 - **Uso real:** publicar a interface (por exemplo, no Streamlit Community Cloud) e o servidor MCP, para que pessoas usem sem instalar nada.
 
@@ -265,6 +289,7 @@ Todas as ferramentas têm descrição, para que o assistente saiba quando usar c
 │       └── model_loader.py
 ├── tests/
 │   ├── test_analytics.py
+│   ├── test_evolucao.py
 │   ├── test_integracao.py
 │   └── test_mcp_tools.py
 ├── .streamlit/

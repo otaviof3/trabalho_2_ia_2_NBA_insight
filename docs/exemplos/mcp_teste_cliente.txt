@@ -1,4 +1,4 @@
-ferramentas: 7
+ferramentas: 9
  - buscar_jogador: descrição='\nBusca jogadores da NBA (temporada 2026) pelo nome'
  - comparar_jogadores: descrição='\nCompara as estatísticas por jogo de dois ou mais '
  - buscar_jogadores_similares: descrição='\nEncontra os jogadores com perfil estatístico mais'
@@ -6,6 +6,8 @@ ferramentas: 7
  - buscar_jogadores: descrição='\nLista jogadores que atendem a limites estatístico'
  - analisar_perfil_hipotetico: descrição='\nClassifica um jogador hipotético em um dos cluste'
  - consultar_modelo: descrição='\nInformações do modelo K-Means em uso: temporada ('
+ - analisar_evolucao_jogador: descrição='\nMostra como um jogador mudou entre duas temporada'
+ - listar_jogadores_em_evolucao: descrição='\nLista os jogadores que mais evoluíram ou caíram e'
 
 consultar_modelo {}
   isError=False -> {
@@ -22,24 +24,21 @@ consultar_modelo {}
     "ft_per_game",
     "fta_per_game",
     "ft_percent",
-    "trb_per
-
-buscar_jogador {"nome": "Jokić"}
-  isError=False -> {
-  "season": 2026,
-  "lg": "NBA",
-  "player": "Nikola Jokić",
-  "player_id": "jokicni01",
-  "age": 30.0,
-  "team": "DEN",
-  "pos": "C",
-  "g": 65,
-  "gs": 65.0,
-  "mp_per_game": 34.8,
-  "fg_per_game": 9.9,
-  "fga_per_game": 17.4,
-  "fg_percent": 0.569,
-  "x3p
+    "trb_per_game",
+    "ast_per_game",
+    "stl_per_game",
+    "blk_per_game",
+    "tov_per_game",
+    "pts_per_game"
+  ],
+  "random_state": 42,
+  "nomes_clusters": {
+    "0": "Reservas",
+    "3": "Protagonistas",
+    "2": "Garrafão",
+    "1": "Perímetro"
+  }
+}
 
 buscar_jogador {"nome": "Jokic"}
   isError=False -> {
@@ -56,7 +55,26 @@ buscar_jogador {"nome": "Jokic"}
   "fg_per_game": 9.9,
   "fga_per_game": 17.4,
   "fg_percent": 0.569,
-  "x3p
+  "x3p_per_game": 1.7,
+  "x3pa_per_game": 4.5,
+  "x3p_percent": 0.38,
+  "x2p_per_game": 8.2,
+  "x2pa_per_game": 12.9,
+  "x2p_percent": 0.636,
+  "e_fg_percent": 0.618,
+  "ft_per_game": 6.1,
+  "fta_per_game": 7.4,
+  "ft_percent": 0.831,
+  "orb_per_game": 3.0,
+  "drb_per_game": 9.9,
+  "trb_per_game": 12.9,
+  "ast_per_game": 10.7,
+  "stl_per_game": 1.4,
+  "blk_per_game": 0.8,
+  "tov_per_game": 3.7,
+  "pf_per_game": 2.7,
+  "pts_per_game": 27.7,
+  
 
 buscar_jogadores_similares {"nome": "Brandon Ingram", "limite": 3}
   isError=False -> {
@@ -71,70 +89,172 @@ buscar_jogadores_similares {"nome": "Brandon Ingram", "limite": 3}
   "fg_percent": 0.484,
   "x3p_per_game": 2.0,
   "x3pa_per_game": 5.2,
-  "x3p_p
-
-comparar_jogadores {"nomes": ["Nikola Jokić", "Luka Dončić"]}
-  isError=False -> {
-  "player": "Nikola Jokić",
-  "team": "DEN",
-  "pos": "C",
-  "age": 30.0,
+  "x3p_percent": 0.391,
+  "ft_per_game": 3.8,
+  "fta_per_game": 4.2,
+  "ft_percent": 0.908,
+  "trb_per_game": 4.1,
+  "ast_per_game": 4.1,
+  "stl_per_game": 1.0,
+  "blk_per_game": 0.5,
+  "tov_per_game": 2.0,
+  "pts_per_game": 20.1,
+  "distance": 1.4886769953
+} {
+  "player": "Cooper Flagg",
+  "team": "DAL",
+  "pos": "SF",
   "cluster": 3,
   "cluster_nome": "Protagonistas",
-  "mp_per_game": 34.8,
-  "fg_per_game": 9.9,
-  "fga_per_game": 17.4,
-  "fg_percent": 0.569,
-  "x3p_per_game": 1.7,
-  "x3pa_per_game":
+  "mp_per_game": 33.5,
+  "fg_per_game": 8.0,
+  "fga_per_game": 17.1,
+  "fg_
 
-comparar_jogadores {"nomes": ["James", "Brandon Ingram"]}
-  isError=True -> Error executing tool comparar_jogadores: Mais de um resultado encontrado para 'James': James Harden, Bronny James, LeBron James, Sion James, James Wiseman. Informe o nome completo.
-
-consultar_clusters {}
+analisar_evolucao_jogador {"nome": "Nickeil Alexander-Walker"}
   isError=False -> {
-  "cluster": 0,
-  "cluster_nome": "Reservas",
-  "jogadores": 222,
-  "mp_per_game": 10.4423423423,
-  "fg_per_game": 1.3121621622,
-  "fga_per_game": 2.9981981982,
-  "fg_percent": 0.434990991,
-  "x3p_per_game": 0.4472972973,
-  "x3pa_per_game": 1.3851351351,
-  "
+  "player": "Nickeil Alexander-Walker",
+  "pos": "SG",
+  "age": 27.0,
+  "team_ant": "MIN",
+  "team_atu": "ATL",
+  "g_ant": 82,
+  "g_atu": 78,
+  "cluster_ant": 1,
+  "cluster_atu": 3,
+  "perfil_ant": "Perímetro",
+  "perfil_atu": "Protagonistas",
+  "mudou_cluster": true,
+  "mp_ant": 25.3,
+  "mp_atu": 33.4,
+  "d_mp": 8.1,
+  "pts_ant": 9.4,
+  "pts_atu": 20.8,
+  "d_pts": 11.4,
+  "trb_ant": 3.2,
+  "trb_atu": 3.4,
+  "d_trb": 0.2,
+  "ast_ant": 2.7,
+  "ast_atu": 3.7,
+  "d_ast": 1.0,
+  "producao_ant": 15.3,
+  "producao_atu": 27.9,
+  "d_producao": 12.6,
+  "tendencia": "Em alta",
+  "contexto_minutagem": "Jogou mais (+8.1 min por jogo)",
+  "amostra_pequena": false
+}
 
-consultar_clusters {"cluster_id": 9}
-  isError=True -> Error executing tool consultar_clusters: Cluster inválido. Informe um valor entre 0 e 3.
-
-buscar_jogadores {"filtros": {"pts_per_game_min": 27}, "limite": 5}
+analisar_evolucao_jogador {"nome": "Cam Thomas"}
   isError=False -> {
-  "season": 2026,
-  "lg": "NBA",
-  "player": "Giannis Antetokounmpo",
-  "player_id": "antetgi01",
-  "age": 31.0,
-  "team": "MIL",
-  "pos": "PF",
-  "g": 36,
-  "gs": 36.0,
-  "mp_per_game": 28.9,
-  "fg_per_game": 10.4,
-  "fga_per_game": 16.6,
-  "fg_percent": 0.
+  "player": "Cam Thomas",
+  "pos": "SG",
+  "age": 24.0,
+  "team_ant": "BRK",
+  "team_atu": "2TM",
+  "g_ant": 25,
+  "g_atu": 42,
+  "cluster_ant": 3,
+  "cluster_atu": 1,
+  "perfil_ant": "Protagonistas",
+  "perfil_atu": "Perímetro",
+  "mudou_cluster": true,
+  "mp_ant": 31.2,
+  "mp_atu": 21.0,
+  "d_mp": -10.2,
+  "pts_ant": 24.0,
+  "pts_atu": 13.5,
+  "d_pts": -10.5,
+  "trb_ant": 3.3,
+  "trb_atu": 1.7,
+  "d_trb": -1.6,
+  "ast_ant": 3.8,
+  "ast_atu": 2.6,
+  "d_ast": -1.2,
+  "producao_ant": 31.1,
+  "producao_atu": 17.8,
+  "d_producao": -13.3,
+  "tendencia": "Em queda",
+  "contexto_minutagem": "Jogou menos (-10.2 min por jogo)",
+  "amostra_pequena": false
+}
 
-analisar_perfil_hipotetico {"estatisticas": {"pts_per_game": 25, "trb_per_game": 7, "ast_per_game
+analisar_evolucao_jogador {"nome": "James"}
+  isError=True -> Error executing tool analisar_evolucao_jogador: Mais de um resultado encontrado para 'James': James Harden, Bronny James, LeBron James, James Wiseman. Informe o nome completo.
+
+analisar_evolucao_jogador {"nome": "Fulano Inexistente"}
+  isError=True -> Error executing tool analisar_evolucao_jogador: Jogador não encontrado nas duas temporadas (2025 e 2026): Fulano Inexistente
+
+analisar_evolucao_jogador {"nome": "LeBron James", "temporada_inicial": 2026, "temporada_final":
+  isError=True -> Error executing tool analisar_evolucao_jogador: A temporada inicial deve ser anterior à final.
+
+listar_jogadores_em_evolucao {"tipo": "alta", "limite": 3}
   isError=False -> {
-  "cluster": 1,
-  "cluster_nome": "Perímetro",
-  "features_informadas": [
-    "pts_per_game",
-    "trb_per_game",
-    "ast_per_game"
-  ],
-  "jogadores_semelhantes": [
+  "jogadores": [
     {
-      "player": "Dylan Harper",
-      "team": "SAS",
-      "pos": "SG",
-      "cluste
+      "player": "Ryan Rollins",
+      "pos": "PG",
+      "age": 23.0,
+      "team_ant": "MIL",
+      "team_atu": "MIL",
+      "g_ant": 56,
+      "g_atu": 74,
+      "cluster_ant": 0,
+      "cluster_atu": 3,
+      "perfil_ant": "Reservas",
+      "perfil_atu": "Protagonistas",
+      "mudou_cluster": true,
+      "mp_ant": 14.6,
+      "mp_atu": 32.1,
+      "d_mp": 17.5,
+      "pts_ant": 6.2,
+      "pts_atu": 17.3,
+      "d_pts": 11.1,
+      "trb_ant": 1.9,
+      "trb_atu": 4.6,
+      "d_trb": 2.7,
+      "ast_ant": 1.9,
+      "ast_atu": 5.6,
+      "d_ast": 3.7,
+      "producao_ant": 10.0,
+      "producao_atu": 27.5,
+      "d_producao": 17.5,
+      "tendencia": "Em alta",
+ 
+
+listar_jogadores_em_evolucao {"tipo": "transicoes", "limite": 3}
+  isError=False -> {
+  "jogadores": [
+    {
+      "player": "Ryan Rollins",
+      "pos": "PG",
+      "age": 23.0,
+      "team_ant": "MIL",
+      "team_atu": "MIL",
+      "g_ant": 56,
+      "g_atu": 74,
+      "cluster_ant": 0,
+      "cluster_atu": 3,
+      "perfil_ant": "Reservas",
+      "perfil_atu": "Protagonistas",
+      "mudou_cluster": true,
+      "mp_ant": 14.6,
+      "mp_atu": 32.1,
+      "d_mp": 17.5,
+      "pts_ant": 6.2,
+      "pts_atu": 17.3,
+      "d_pts": 11.1,
+      "trb_ant": 1.9,
+      "trb_atu": 4.6,
+      "d_trb": 2.7,
+      "ast_ant": 1.9,
+      "ast_atu": 5.6,
+      "d_ast": 3.7,
+      "producao_ant": 10.0,
+      "producao_atu": 27.5,
+      "d_producao": 17.5,
+      "tendencia": "Em alta",
+ 
+
+listar_jogadores_em_evolucao {"tipo": "xyz"}
+  isError=True -> Error executing tool listar_jogadores_em_evolucao: Tipo inválido. Use 'alta', 'queda' ou 'transicoes'.

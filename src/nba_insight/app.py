@@ -23,6 +23,10 @@ from src.nba_insight.analytics import (
     add_cluster_names,
     cluster_label,
     get_cluster_names,
+    get_evolution_table,
+    analyze_player_evolution,
+    list_players_in_evolution,
+    get_cluster_transitions,
 )
 from src.nba_insight.config import DESCRICAO_CLUSTERS
 
@@ -114,6 +118,7 @@ pagina = st.sidebar.radio(
     "Jogadores similares",
     "Comparações",
     "Clusters",
+    "Evolução",
     "Perfil hipotético",
 ],
 )
@@ -553,6 +558,158 @@ elif pagina == "Clusters":
         hide_index=True,
     )
 
+
+
+# --------------------------------------------------
+# EVOLUÇÃO ENTRE TEMPORADAS
+# --------------------------------------------------
+
+elif pagina == "Evolução":
+
+    st.markdown("## Evolução dos jogadores (2025 → 2026)")
+
+    st.write(
+        "Cada jogador de 2025 é classificado com o mesmo modelo de 2026, "
+        "então a mudança de cluster indica mudança de perfil. "
+        "A **produção** é pontos + rebotes + assistências por jogo. "
+        "Só entram jogadores com pelo menos 20 jogos nas duas temporadas."
+    )
+
+    @st.cache_data
+    def carregar_evolucao():
+        return get_evolution_table()
+
+    evolucao = carregar_evolucao()
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Jogadores comparados", len(evolucao))
+    c2.metric("Em alta", int((evolucao["tendencia"] == "Em alta").sum()))
+    c3.metric("Em queda", int((evolucao["tendencia"] == "Em queda").sum()))
+    c4.metric("Mudaram de cluster", int(evolucao["mudou_cluster"].sum()))
+
+    st.divider()
+
+    st.markdown("### Evolução de um jogador")
+
+    nomes_evolucao = sorted(evolucao["player"].unique())
+
+    jogador_evo = st.selectbox(
+        "Selecione o jogador",
+        nomes_evolucao,
+        index=nomes_evolucao.index("Nickeil Alexander-Walker")
+        if "Nickeil Alexander-Walker" in nomes_evolucao else 0,
+        key="jogador_evolucao",
+    )
+
+    linha = analyze_player_evolution(jogador_evo).iloc[0]
+
+    m1, m2, m3, m4 = st.columns([1, 1.5, 1, 1])
+    m1.metric("Tendência", linha["tendencia"])
+    m2.metric(
+        "Perfil",
+        linha["perfil_atu"],
+        delta=(
+            f"antes: {linha['perfil_ant']}"
+            if linha["mudou_cluster"] else "sem mudança"
+        ),
+        delta_color="off",
+    )
+    m3.metric(
+        "Produção por jogo",
+        f"{linha['producao_atu']:.1f}",
+        delta=f"{linha['d_producao']:+.1f}",
+    )
+    m4.metric(
+        "Minutos por jogo",
+        f"{linha['mp_atu']:.1f}",
+        delta=f"{linha['d_mp']:+.1f}",
+    )
+
+    st.caption(f"Contexto: {linha['contexto_minutagem']}.")
+
+    grafico = pd.DataFrame({
+        "Estatística": ["Pontos", "Rebotes", "Assistências", "Minutos"] * 2,
+        "Temporada": ["2025"] * 4 + ["2026"] * 4,
+        "Por jogo": [
+            linha["pts_ant"], linha["trb_ant"], linha["ast_ant"], linha["mp_ant"],
+            linha["pts_atu"], linha["trb_atu"], linha["ast_atu"], linha["mp_atu"],
+        ],
+    })
+
+    fig = px.bar(
+        grafico,
+        x="Estatística",
+        y="Por jogo",
+        color="Temporada",
+        barmode="group",
+        text_auto=".1f",
+        template="plotly_dark",
+        color_discrete_map={"2025": "#64748b", "2026": "#f97316"},
+    )
+
+    st.plotly_chart(fig, width="stretch")
+
+    st.divider()
+
+    st.markdown("### Quem mais mudou")
+
+    aba_alta, aba_queda, aba_transicoes = st.tabs(
+        ["Em alta", "Em queda", "Mudaram de cluster"]
+    )
+
+    colunas_tabela = [
+        "player", "perfil_ant", "perfil_atu",
+        "producao_ant", "producao_atu", "d_producao",
+        "d_mp", "contexto_minutagem",
+    ]
+
+    with aba_alta:
+        st.dataframe(
+            list_players_in_evolution("alta", 15)[colunas_tabela],
+            width="stretch",
+            hide_index=True,
+        )
+
+    with aba_queda:
+        st.dataframe(
+            list_players_in_evolution("queda", 15)[colunas_tabela],
+            width="stretch",
+            hide_index=True,
+        )
+
+    with aba_transicoes:
+        st.dataframe(
+            list_players_in_evolution("transicoes", 30)[colunas_tabela],
+            width="stretch",
+            hide_index=True,
+        )
+
+    st.markdown("### Transições entre clusters")
+
+    matriz = get_cluster_transitions()
+
+    fig = px.imshow(
+        matriz,
+        text_auto=True,
+        aspect="auto",
+        color_continuous_scale="Oranges",
+        template="plotly_dark",
+        labels={
+            "x": "Perfil em 2026",
+            "y": "Perfil em 2025",
+            "color": "Jogadores",
+        },
+    )
+
+    st.plotly_chart(fig, width="stretch")
+
+    st.caption(
+        "Mudar de cluster nem sempre é mudança de talento: muitas vezes "
+        "o jogador só passou a jogar mais ou menos minutos. Use a coluna "
+        "de contexto para diferenciar. Os grupos também têm fronteiras "
+        "difusas, então jogadores no limite podem trocar de cluster com "
+        "pequenas variações."
+    )
 
 
 # --------------------------------------------------

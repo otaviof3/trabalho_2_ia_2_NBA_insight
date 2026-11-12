@@ -164,3 +164,12 @@ A execução dos testes é realizada utilizando Pytest.
 A arquitetura modular permite separar responsabilidades e reutilizar as funcionalidades analíticas em diferentes interfaces.
 
 A utilização do MCP amplia as possibilidades de interação com o sistema, permitindo integrar os recursos de análise estatística a assistentes de inteligência artificial sem modificar o modelo de Machine Learning ou duplicar a lógica de processamento.
+
+## Análise de evolução entre temporadas
+
+Funções em `analytics.py`: `get_evolution_table`, `analyze_player_evolution`, `list_players_in_evolution` e `get_cluster_transitions`.
+
+- O modelo (imputer, scaler e K-Means) continua sendo o treinado em 2026. As linhas de outra temporada passam pelas mesmas transformações e pela mesma classificação (`_load_season_with_clusters`), de modo que os clusters são comparáveis entre temporadas.
+- A junção entre temporadas usa `player_id`.
+- Critérios (em `config.py`): mínimo de 20 jogos por temporada, limiar de tendência de 3,0 na produção (pontos + rebotes + assistências) e limiar de 5 minutos para o contexto de minutagem.
+- A interface (página Evolução) e o servidor MCP (`analisar_evolucao_jogador` e `listar_jogadores_em_evolucao`) usam essas mesmas funções.

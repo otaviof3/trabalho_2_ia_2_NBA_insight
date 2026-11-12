@@ -6,12 +6,17 @@ import pandas as pd
 
 from .config import (
     FEATURES,
+    LIMIAR_MINUTOS,
+    LIMIAR_TENDENCIA,
+    MIN_JOGOS_EVOLUCAO,
+    SEASON,
+    SEASON_ANTERIOR,
     NOME_GARRAFAO,
     NOME_PERIMETRO,
     NOME_PROTAGONISTAS,
     NOME_RESERVAS,
 )
-from .data_loader import load_and_prepare_data
+from .data_loader import load_and_prepare_data, load_dataset, prepare_season_data
 from .model_loader import load_model_artifact
 
 
@@ -509,3 +514,243 @@ def analyze_hypothetical_player(stats, limit=5):
         "similar_players": similar_players.reset_index(drop=True),
         "provided_features": list(stats.keys()),
     }
+
+
+# ============================================================
+# EVOLUÇÃO DOS JOGADORES ENTRE TEMPORADAS
+# ============================================================
+#
+# O modelo (imputer + scaler + K-Means) foi treinado na temporada 2026.
+# Para comparar temporadas, aplicamos exatamente esse mesmo modelo às
+# linhas de cada temporada: a "régua" é a mesma, então a mudança de
+# cluster de um jogador indica mudança de perfil estatístico.
+
+@lru_cache(maxsize=8)
+def _load_season_with_clusters(season):
+    """Prepara uma temporada e classifica seus jogadores no K-Means."""
+
+    artifact = load_model_artifact()
+    features = artifact["features"]
+
+    df = prepare_season_data(load_dataset(), season).copy()
+
+    X = artifact["scaler"].transform(
+        artifact["imputer"].transform(df[features])
+    )
+
+    df["cluster"] = artifact["modelo"].predict(X)
+
+    return df
+
+
+def _classificar_tendencia(variacao):
+    """Em alta / Em queda / Estável, pela variação de pts + reb + ast."""
+
+    if variacao >= LIMIAR_TENDENCIA:
+        return "Em alta"
+
+    if variacao <= -LIMIAR_TENDENCIA:
+        return "Em queda"
+
+    return "Estável"
+
+
+def _contexto_minutagem(variacao_minutos, tendencia):
+    """
+    Diz se a mudança veio junto com variação de minutos, para que o
+    leitor não confunda "jogou mais" com "jogou melhor".
+    """
+
+    if variacao_minutos >= LIMIAR_MINUTOS:
+        return f"Jogou mais ({variacao_minutos:+.1f} min por jogo)"
+
+    if variacao_minutos <= -LIMIAR_MINUTOS:
+        return f"Jogou menos ({variacao_minutos:+.1f} min por jogo)"
+
+    if tendencia == "Estável":
+        return "Sem mudança relevante"
+
+    return "Minutagem parecida (mudança de rendimento ou de função)"
+
+
+def get_evolution_table(
+    season_from=SEASON_ANTERIOR,
+    season_to=SEASON,
+    min_games=MIN_JOGOS_EVOLUCAO,
+):
+    """
+    Compara cada jogador entre duas temporadas.
+
+    Só entram jogadores que aparecem nas duas temporadas e que tenham
+    pelo menos `min_games` jogos em cada uma (amostras pequenas
+    distorcem as médias).
+
+    "Produção" = pontos + rebotes + assistências por jogo. A tendência
+    é "Em alta" ou "Em queda" quando a produção varia pelo menos
+    LIMIAR_TENDENCIA; senão, "Estável".
+    """
+
+    if season_from >= season_to:
+        raise ValueError(
+            "A temporada inicial deve ser anterior à final."
+        )
+
+    if min_games < 0:
+        raise ValueError("O mínimo de jogos não pode ser negativo.")
+
+    colunas = [
+        "player_id", "player", "team", "pos", "age", "g", "cluster",
+        "mp_per_game", "pts_per_game", "trb_per_game", "ast_per_game",
+    ]
+
+    antes = _load_season_with_clusters(season_from)[colunas]
+    depois = _load_season_with_clusters(season_to)[colunas]
+
+    m = antes.merge(depois, on="player_id", suffixes=("_ant", "_atu"))
+    m = m[(m["g_ant"] >= min_games) & (m["g_atu"] >= min_games)].copy()
+
+    nomes = get_cluster_names()
+
+    out = pd.DataFrame({
+        "player": m["player_atu"],
+        "pos": m["pos_atu"],
+        "age": m["age_atu"],
+        "team_ant": m["team_ant"],
+        "team_atu": m["team_atu"],
+        "g_ant": m["g_ant"],
+        "g_atu": m["g_atu"],
+        "cluster_ant": m["cluster_ant"],
+        "cluster_atu": m["cluster_atu"],
+        "perfil_ant": m["cluster_ant"].map(nomes),
+        "perfil_atu": m["cluster_atu"].map(nomes),
+        "mudou_cluster": m["cluster_ant"] != m["cluster_atu"],
+        "mp_ant": m["mp_per_game_ant"],
+        "mp_atu": m["mp_per_game_atu"],
+        "d_mp": m["mp_per_game_atu"] - m["mp_per_game_ant"],
+    })
+
+    for sigla in ["pts", "trb", "ast"]:
+        out[f"{sigla}_ant"] = m[f"{sigla}_per_game_ant"]
+        out[f"{sigla}_atu"] = m[f"{sigla}_per_game_atu"]
+        out[f"d_{sigla}"] = out[f"{sigla}_atu"] - out[f"{sigla}_ant"]
+
+    out["producao_ant"] = out["pts_ant"] + out["trb_ant"] + out["ast_ant"]
+    out["producao_atu"] = out["pts_atu"] + out["trb_atu"] + out["ast_atu"]
+    out["d_producao"] = out["producao_atu"] - out["producao_ant"]
+
+    out["tendencia"] = out["d_producao"].map(_classificar_tendencia)
+    out["contexto_minutagem"] = [
+        _contexto_minutagem(d_mp, t)
+        for d_mp, t in zip(out["d_mp"], out["tendencia"])
+    ]
+
+    return out.reset_index(drop=True).round(3)
+
+
+def analyze_player_evolution(
+    name,
+    season_from=SEASON_ANTERIOR,
+    season_to=SEASON,
+):
+    """
+    Evolução de um jogador entre duas temporadas (uma linha).
+
+    Não aplica o mínimo de jogos, para poder analisar qualquer
+    jogador que esteja nas duas; a coluna `amostra_pequena` avisa
+    quando algum dos lados tem menos jogos que o recomendado.
+    """
+
+    if not name or not name.strip():
+        raise ValueError("Informe o nome de um jogador.")
+
+    tabela = get_evolution_table(season_from, season_to, min_games=0)
+
+    alvo = _normalizar(name)
+    nomes = tabela["player"].map(_normalizar)
+
+    encontrados = tabela[nomes == alvo]
+
+    if encontrados.empty:
+        encontrados = tabela[nomes.str.contains(alvo, regex=False, na=False)]
+
+    if encontrados.empty:
+        raise ValueError(
+            f"Jogador não encontrado nas duas temporadas "
+            f"({season_from} e {season_to}): {name}"
+        )
+
+    if len(encontrados) > 1:
+        raise ValueError(_erro_ambiguo(name, encontrados))
+
+    resultado = encontrados.copy()
+    resultado["amostra_pequena"] = (
+        (resultado["g_ant"] < MIN_JOGOS_EVOLUCAO)
+        | (resultado["g_atu"] < MIN_JOGOS_EVOLUCAO)
+    )
+
+    return resultado.reset_index(drop=True)
+
+
+def list_players_in_evolution(
+    kind="alta",
+    limit=10,
+    season_from=SEASON_ANTERIOR,
+    season_to=SEASON,
+    min_games=MIN_JOGOS_EVOLUCAO,
+):
+    """
+    Lista jogadores em destaque na evolução entre duas temporadas.
+
+    kind:
+      "alta"        maiores aumentos de produção (tendência "Em alta")
+      "queda"       maiores quedas de produção (tendência "Em queda")
+      "transicoes"  quem mudou de cluster (maiores variações primeiro)
+    """
+
+    if limit < 1:
+        raise ValueError("O limite deve ser maior que zero.")
+
+    tabela = get_evolution_table(season_from, season_to, min_games)
+
+    if kind == "alta":
+        lista = tabela[tabela["tendencia"] == "Em alta"].nlargest(
+            limit, "d_producao"
+        )
+
+    elif kind == "queda":
+        lista = tabela[tabela["tendencia"] == "Em queda"].nsmallest(
+            limit, "d_producao"
+        )
+
+    elif kind == "transicoes":
+        lista = tabela[tabela["mudou_cluster"]].copy()
+        lista["_abs"] = lista["d_producao"].abs()
+        lista = lista.nlargest(limit, "_abs").drop(columns="_abs")
+
+    else:
+        raise ValueError(
+            "Tipo inválido. Use 'alta', 'queda' ou 'transicoes'."
+        )
+
+    return lista.reset_index(drop=True)
+
+
+def get_cluster_transitions(
+    season_from=SEASON_ANTERIOR,
+    season_to=SEASON,
+    min_games=MIN_JOGOS_EVOLUCAO,
+):
+    """
+    Matriz de transições: linhas = perfil na temporada inicial,
+    colunas = perfil na final, valores = número de jogadores.
+    """
+
+    tabela = get_evolution_table(season_from, season_to, min_games)
+
+    ordem = [
+        nome for _, nome in sorted(get_cluster_names().items())
+    ]
+
+    matriz = pd.crosstab(tabela["perfil_ant"], tabela["perfil_atu"])
+
+    return matriz.reindex(index=ordem, columns=ordem, fill_value=0)

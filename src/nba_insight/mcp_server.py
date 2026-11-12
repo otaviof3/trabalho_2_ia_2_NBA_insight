@@ -23,6 +23,9 @@ from src.nba_insight.analytics import (
     get_players_data,
     add_cluster_names,
     get_cluster_names,
+    analyze_player_evolution,
+    list_players_in_evolution,
+    get_cluster_transitions,
 )
 
 
@@ -195,6 +198,71 @@ def consultar_modelo() -> dict:
         str(k): v for k, v in get_cluster_names().items()
     }
     return info
+
+
+# 8. Evolução de um jogador entre temporadas
+@mcp.tool()
+def analisar_evolucao_jogador(
+    nome: str,
+    temporada_inicial: int = 2025,
+    temporada_final: int = 2026
+) -> dict:
+    """
+    Mostra como um jogador mudou entre duas temporadas (padrão 2025 e 2026).
+
+    Retorna, para cada temporada, o perfil (cluster), minutos, pontos,
+    rebotes e assistências por jogo, mais as variações ("d_...").
+    "d_producao" é a variação de pontos + rebotes + assistências por
+    jogo. "tendencia" é Em alta, Em queda ou Estável, e
+    "contexto_minutagem" diz se a mudança veio junto com mais ou
+    menos minutos (jogar mais não é jogar melhor). Se
+    "amostra_pequena" for true, algum lado tem poucos jogos e a
+    comparação é menos confiável. O modelo foi treinado em 2026,
+    então temporadas muito antigas são menos confiáveis.
+    """
+    resultado = analyze_player_evolution(
+        nome, temporada_inicial, temporada_final
+    )
+    return dataframe_to_records(resultado)[0]
+
+
+# 9. Jogadores em destaque na evolução
+@mcp.tool()
+def listar_jogadores_em_evolucao(
+    tipo: str = "alta",
+    limite: int = 10,
+    temporada_inicial: int = 2025,
+    temporada_final: int = 2026,
+    minimo_jogos: int = 20
+) -> dict:
+    """
+    Lista os jogadores que mais evoluíram ou caíram entre duas temporadas
+    (padrão 2025 e 2026), e a matriz de transições entre clusters.
+
+    "tipo": "alta" (maiores aumentos de produção), "queda" (maiores
+    quedas) ou "transicoes" (quem mudou de cluster). Só entram jogadores
+    com pelo menos "minimo_jogos" jogos nas duas temporadas. Cada
+    jogador traz perfil antes e depois, variações e
+    "contexto_minutagem", para o assistente explicar se a mudança
+    veio de minutagem ou de rendimento. "transicoes_entre_clusters"
+    conta quantos jogadores foram de cada perfil (linhas) para cada
+    perfil (colunas).
+    """
+    lista = list_players_in_evolution(
+        kind=tipo,
+        limit=limite,
+        season_from=temporada_inicial,
+        season_to=temporada_final,
+        min_games=minimo_jogos,
+    )
+    matriz = get_cluster_transitions(
+        temporada_inicial, temporada_final, minimo_jogos
+    )
+
+    return {
+        "jogadores": dataframe_to_records(lista),
+        "transicoes_entre_clusters": matriz.to_dict(orient="index"),
+    }
 
 
 if __name__ == "__main__":

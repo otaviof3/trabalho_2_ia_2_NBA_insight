@@ -24,6 +24,14 @@ MODEL_PATH = ARTIFACTS_DIR / "kmeans_nba_2026.joblib"
 
 SEASON = 2026
 
+# Temporada usada como ponto de partida na análise de evolução
+SEASON_ANTERIOR = 2025
+
+# Análise de evolução: critérios (ver analytics.get_evolution_table)
+MIN_JOGOS_EVOLUCAO = 20      # mínimo de jogos em cada temporada
+LIMIAR_TENDENCIA = 3.0       # variação de (pts + reb + ast) por jogo
+LIMIAR_MINUTOS = 5.0         # variação de minutos por jogo considerada relevante
+
 N_CLUSTERS = 4
 
 RANDOM_STATE = 42
